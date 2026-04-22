@@ -2,8 +2,9 @@ import os
 
 import requests
 from dotenv import load_dotenv
-from fastapi import FastAPI, Header, HTTPException
+from fastapi import Body, FastAPI, Header, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+
 from utils import prompt_builder
 
 load_dotenv()
@@ -14,11 +15,12 @@ API_URL = os.getenv("API_URL")
 app = FastAPI(title="SQL Generator API")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 async def verify_token(token: str):
     if token != TOKEN:
@@ -28,7 +30,12 @@ async def verify_token(token: str):
 
 @app.get("/api/sql")
 async def generate_sql(
-    q: str, dialect: str = "postgresql", authorization: str = Header(None)
+    q: str,
+    dialect: str = Query(
+        default="postgresql", description="SQL dialect: postgresql, mysql, sqlite"
+    ),
+    table_meta: str | None = Body(None, description="Custom table schema (optional)"),
+    authorization: str | None = Header(None),
 ):
     if not authorization:
         raise HTTPException(status_code=401, detail="Authorization header required")
@@ -36,7 +43,65 @@ async def generate_sql(
     token = authorization.replace("Bearer ", "")
     await verify_token(token)
 
-    prompt = prompt_builder(q, dialect)
+    prompt = prompt_builder(q, dialect, table_meta)
+
+    try:
+        response = requests.post(
+            f"{API_URL}/api/generate",
+            json={
+                "model": "deepseek-coder:6.7b-instruct-q4_K_M",
+                "prompt": prompt,
+                "temperature": 0.1,
+                "max_tokens": 500,
+                "stream": False,
+            },
+            timeout=60,
+        )
+
+        if response.status_code == 200:
+            result = response.json()
+            sql = result.get("response", "").strip()
+            sql = sql.replace("```sql", "").replace("```", "").strip()
+
+            return {
+                "success": True,
+                "question": q,
+                "dialect": dialect,
+                "sql": sql,
+            }
+        else:
+            raise HTTPException(
+                status_code=response.status_code,
+                detail=f"Ollama API error: {response.status_code}",
+            )
+
+    except requests.exceptions.Timeout:
+        raise HTTPException(status_code=504, detail="Request timeout")
+    except requests.exceptions.ConnectionError:
+        raise HTTPException(status_code=503, detail="Cannot connect to Ollama")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/sql")
+async def generate_sql_post(
+    request_data: dict,
+    authorization: str = Header(None),
+):
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Authorization header required")
+
+    token = authorization.replace("Bearer ", "")
+    await verify_token(token)
+
+    q = request_data.get("q")
+    if not q:
+        raise HTTPException(status_code=400, detail="Field 'q' is required")
+
+    dialect = request_data.get("dialect", "postgresql")
+    table_meta = request_data.get("table_meta", None)
+
+    prompt = prompt_builder(q, dialect, table_meta)
 
     try:
         response = requests.post(

@@ -1,10 +1,7 @@
-def prompt_builder(user_query: str, dialect: str = "postgresql") -> str:
-    PROMPT = f"""You are a SQL generator. Follow this format exactly:
-
-User: [question in natural language]
-SQL: [only SQL code, no explanations, no markdown]
-
-Database schema for anonymized incity orders:
+def prompt_builder(
+    user_query: str, dialect: str = "postgresql", table_meta: str | None = None
+) -> str:
+    default_schema = """Database schema for anonymized incity orders:
 - city_id (integer) - city identifier
 - offset_hours (integer) - UTC offset in hours for local time
 - order_id (string) - anonymized order ID
@@ -31,8 +28,26 @@ Database schema for anonymized incity orders:
 
 Important notes:
 - One row = one order_id + tender_id combination
-- For time-based queries, consider offset_hours for local time conversion
-- Use {dialect.upper()} syntax
+- For time-based queries, consider offset_hours for local time conversion"""
+
+    if table_meta and table_meta.strip():
+        schema_section = f"""Database schema:
+{table_meta}
+
+Important notes:
+- Use the exact column names as defined in the schema above
+- Consider data types when writing queries"""
+    else:
+        schema_section = default_schema
+
+    PROMPT = f"""You are a SQL generator. Follow this format exactly:
+
+User: [question in natural language]
+SQL: [only SQL code, no explanations, no markdown]
+
+{schema_section}
+
+Use {dialect.upper()} syntax.
 
 User: {user_query}
 SQL:"""
