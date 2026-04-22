@@ -58,11 +58,17 @@ curl -X GET "http://localhost:8000/api/sql?q=find%20users%20over%2018&dialect=po
 | `q` | string | ✅ Да | Вопрос на естественном языке | `find users over 18` |
 | `dialect` | string | ❌ Нет | Диалект SQL (по умолчанию: `postgresql`) | `mysql`, `sqlite`, `postgresql` |
 
+
 ### Заголовки
 
 | Заголовок | Значение | Описание |
 |-----------|----------|----------|
 | `Authorization` | `Bearer <token>` | Токен авторизации |
+
+### Тело запроса
+| Параметр | Тип | Обязательный | Описание | Пример |
+|----------|-----|--------------|----------|--------|
+| `table_meta` | string | ❌ Нет | Схема БД | order (order_id : int, user_id: int, order_title: string), user (user_id: int, name: string) |
 
 ### Пример запроса
 
@@ -80,3 +86,42 @@ curl -X GET "http://localhost:8000/api/sql?q=find%20users%20over%2018&dialect=po
   "sql": "SELECT * FROM users WHERE age > 18;"
 }
 ```
+
+## POST `/api/sql`
+
+Генерация SQL запроса из естественного языка с возможностью передачи пользовательской схемы базы данных.
+
+### Параметры запроса
+
+| Параметр | Тип | Обязательный | Описание | Пример |
+|----------|-----|--------------|----------|--------|
+| `q` | string | ✅ Да | Вопрос на естественном языке | `find users over 18` |
+| `dialect` | string | ❌ Нет | Диалект SQL (по умолчанию: `postgresql`) | `mysql`, `sqlite`, `postgresql` |
+| `table_meta` | string | ❌ Нет | Пользовательская схема таблицы БД (если не указана, используется дефолтная схема) | `users(id, name, email)` |
+
+### Заголовки
+
+| Заголовок | Значение | Описание |
+|-----------|----------|----------|
+| `Authorization` | `Bearer <token>` | Токен авторизации |
+| `Content-Type` | `application/json` | Тип содержимого |
+
+### Тело запроса (JSON)
+
+| Поле | Тип | Обязательный | Описание | Пример |
+|------|-----|--------------|----------|--------|
+| `q` | string | ✅ Да | Вопрос на естественном языке | `"find users over 18"` |
+| `dialect` | string | ❌ Нет | Диалект SQL (по умолчанию: `postgresql`) | `"mysql"`, `"sqlite"`, `"postgresql"` |
+| `table_meta` | string | ❌ Нет | Схема таблицы БД. Если указана, используется вместо дефолтной схемы | `"users(id, name, age, email)\norders(id, user_id, amount)"` |
+
+### Примеры запросов
+
+#### Без пользовательской схемы (используется дефолтная)
+```bash
+curl -X POST "http://api.daemuun.ru:8000/api/sql" \
+  -H "Authorization: Bearer 9Xov01Gwyc1r" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "q": "найти топ 5 водителей по количеству поездок",
+    "dialect": "postgresql"
+  }'
