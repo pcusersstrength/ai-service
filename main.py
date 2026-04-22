@@ -3,7 +3,7 @@ import os
 import requests
 from dotenv import load_dotenv
 from fastapi import FastAPI, Header, HTTPException
-
+from fastapi.middleware.cors import CORSMiddleware
 from utils import prompt_builder
 
 load_dotenv()
@@ -12,7 +12,13 @@ TOKEN = os.getenv("TOKEN")
 API_URL = os.getenv("API_URL")
 
 app = FastAPI(title="SQL Generator API")
-
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 async def verify_token(token: str):
     if token != TOKEN:
