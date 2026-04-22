@@ -27,10 +27,16 @@ TOKEN=your_secret_token_here
 ### 3. Запустите сервис
 
 ```bash
-docker-compose up -d
+docker compose up -d
 ```
 
-### 4. Проверьте работу
+### 4. Импортируйте модель
+
+```bash
+docker exec ollama ollama pull deepseek-coder:6.7b-instruct-q4_K_M
+```
+
+### 5. Проверьте работу
 ```bash
 # Health check
 curl http://localhost:8000/health
